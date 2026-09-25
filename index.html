@@ -729,6 +729,10 @@ function impStatus(msg,cls){
   n.hidden=!msg;n.textContent=msg||'';
   n.className='impstatus'+(cls?' '+cls:'');
 }
+function clean(s){
+  /* unsichtbare Trennzeichen von fussball.de entfernen */
+  return String(s||'').replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g,'').replace(/\s+/g,' ').trim();
+}
 function parseGame(g){
   if(!g)return null;
   var dm=String(g.date||'').match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
@@ -736,17 +740,36 @@ function parseGame(g){
   if(!dm)return null;
   var y=+dm[3];if(y<100)y+=2000;
   var iso=y+'-'+('0'+dm[2]).slice(-2)+'-'+('0'+dm[1]).slice(-2);
-  var home=String(g.homeTeam||'').trim(),away=String(g.awayTeam||'').trim();
-  var ownRe=/nordhausen|zipplingen/i;
+  var home=clean(g.homeTeam),away=clean(g.awayTeam);
+  var ownRe=/nordhausen|zipplingen|zippl\./i;
   var ownHome=ownRe.test(home),ownAway=ownRe.test(away);
   if(ownHome===ownAway)return null; /* eigenes Team nicht eindeutig */
   var own=ownHome?home:away,opp=ownHome?away:home;
-  var comp=String(g.competition||'').trim();
+  var comp=clean(g.competition);
   /* nur Herren + Reserve: Jugend/Frauen raus */
-  if(/junior|jugend|[A-G]\s*-?\s*jun|frauen|damen|bambini/i.test(comp+' '+own))return null;
-  var reserve=/\bII\b|\b2\b|reserve|flex/i.test(own.replace(ownRe,''))?1:0;
+  if(/junior|jugend|[A-G]\s*-?\s*jun|frauen|damen|bambini|\(9er\)/i.test(comp+' '+own))return null;
+  /* Reserve erkennt man am Flex-/II-Marker auf einer der beiden Seiten */
+  var flex=/\(flex\)|\bflex\b/i.test(own+' '+opp);
+  var ownII=/\bII\b|\b2\b|reserve/i.test(own.replace(ownRe,''));
+  var reserve=(flex||ownII)?1:0;
+  /* Zusatz-Marker gehoeren nicht in den Gegnernamen auf dem Bogen */
+  opp=clean(opp.replace(/\((flex|9er)\)/ig,''));
   return {iso:iso,time:tm?(('0'+tm[1]).slice(-2)+':'+tm[2]):'',home:ownHome,
-          own:own,opp:opp,comp:comp,team:reserve};
+          own:own,opp:opp,comp:comp,team:reserve,marked:(flex||ownII)};
+}
+/* Zwei Spiele am selben Tag ohne klaren Marker: das fruehere ist die Reserve */
+function splitSameDay(list){
+  var byDay={};
+  list.forEach(function(g){(byDay[g.iso]=byDay[g.iso]||[]).push(g);});
+  Object.keys(byDay).forEach(function(d){
+    var day=byDay[d];
+    if(day.length!==2)return;
+    if(day[0].marked||day[1].marked)return;      /* Marker vorhanden: nicht raten */
+    if(day[0].team!==day[1].team)return;          /* schon unterschiedlich */
+    day.sort(function(a,b){return a.time.localeCompare(b.time);});
+    day[0].team=1;day[1].team=0;
+  });
+  return list;
 }
 function fmtWd(iso){
   var d=new Date(iso+'T12:00:00');
@@ -789,8 +812,9 @@ function loadGames(){
 }
 function ingestGames(raw){
   var today=new Date();today.setHours(0,0,0,0);
-  loadedGames=raw.map(parseGame).filter(Boolean)
-    .filter(function(g){return new Date(g.iso+'T12:00:00')>=today;})
+  loadedGames=splitSameDay(
+      raw.map(parseGame).filter(Boolean)
+        .filter(function(g){return new Date(g.iso+'T12:00:00')>=today;}))
     .sort(function(a,b){return (a.iso+a.time).localeCompare(b.iso+b.time);})
     .slice(0,12);
   renderGameList();
