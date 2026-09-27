@@ -131,6 +131,43 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 #pcount{color:#555;font-size:13.5px}
 .saveline{display:flex;align-items:center;gap:14px;margin-top:12px}
 
+/* ---------- Tabelle ---------- */
+.tcard{padding:16px 16px 14px}
+.tcard .thl{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.tcard .thl h2{margin:0}
+.tcard .liga{font-size:13px;color:#666;font-weight:600;letter-spacing:.3px}
+.ltable{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.ltable th{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:#777;font-weight:700;
+  text-align:right;padding:6px 6px;border-bottom:2px solid var(--line)}
+.ltable td{text-align:right;padding:7px 6px;border-bottom:1px solid #ececec;white-space:nowrap}
+.ltable .tl{text-align:left;white-space:normal}
+.ltable td.tl{line-height:1.3}
+.ltable td.pl{width:30px;color:#555;box-shadow:inset 3px 0 0 transparent}
+.ltable tr.up td.pl{box-shadow:inset 3px 0 0 #2f7d4f}
+.ltable tr.down td.pl{box-shadow:inset 3px 0 0 #9a9a9a}
+.ltable td.pkt{font-weight:800}
+.ltable tr.own td{background:#f6e7e9;font-weight:700;color:var(--wein-dark)}
+.ltable .flex{color:#888;font-size:12px;font-weight:400}
+.tmeta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;color:#777;margin-top:10px}
+.tmeta a{color:var(--wein-dark);font-weight:600}
+.legend{display:inline-flex;gap:12px}
+.legend i{display:inline-block;width:3px;height:12px;vertical-align:-2px;margin-right:4px}
+.empty{color:#666;font-size:14px;line-height:1.5}
+
+/* ---------- Kader ---------- */
+.kgroup{margin-top:14px}
+.kgroup h3{font-size:14px;margin:0 0 6px;letter-spacing:.3px}
+.kgroup h3 small{font-weight:400;color:#777;letter-spacing:0}
+.klist{list-style:none;margin:0;padding:0;columns:2 220px;column-gap:18px}
+.klist li{break-inside:avoid;display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:14px;border-bottom:1px dotted #e3e3e3}
+.klist .kn{flex:1;min-width:0}
+.klist .ks{color:#888;font-size:12px;white-space:nowrap}
+.badge{font-size:10.5px;font-weight:700;letter-spacing:.3px;border-radius:3px;padding:1px 5px;white-space:nowrap}
+.badge.neu{background:var(--wein);color:#fff}
+.badge.drin{background:#eee;color:#666}
+.kactions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.btn:disabled{opacity:.5;cursor:default}
+
 /* ---------- Responsive ---------- */
 @media (max-width:640px){
   .sheet{padding:16px 12px 20px;margin:10px 6px}
@@ -146,6 +183,12 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
   .info .cell{padding:4px 5px}
   .info .pen,.info .penval{font-size:14px}
   .info .cell.th{letter-spacing:.5px;font-size:11.5px}
+  .card{margin:12px 8px;padding:16px 14px 16px}
+  .ltable{font-size:13px}
+  .ltable .hs{display:none}
+  .ltable td,.ltable th{padding:6px 4px}
+  .bar{padding:8px 10px;gap:6px}
+  .brand{width:100%;margin:0}
 }
 
 /* ---------- Import (fussball.de) ---------- */
@@ -206,6 +249,7 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
     <span class="brand">SV/DJK · Aufstellung</span>
     <button class="tab" id="tbForm" aria-selected="true">Spieltag</button>
     <button class="tab" id="tbPlayers" aria-selected="false">Spielerliste</button>
+    <button class="tab" id="tbTable" aria-selected="false">Tabelle</button>
     <span class="actions">
       <button class="act" id="btnPng" title="Als Bild speichern (z.&nbsp;B. für WhatsApp)">Bild (PNG)</button>
       <button class="act" id="btnPrint" title="Drucken oder als PDF speichern">Drucken</button>
@@ -340,6 +384,15 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
         <button class="btn" id="savePlayers">Liste speichern</button>
       </div>
     </div>
+    <div class="card" id="kaderCard">
+      <h2>Kader von fussball.de</h2>
+      <div id="kaderHost"><p class="empty">Noch keine Kaderdaten vorhanden.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= Tabelle ================= -->
+  <section id="tabTable" hidden>
+    <div id="tableHost"></div>
   </section>
 </div>
 
@@ -571,6 +624,7 @@ function wire(){
   });
   $('#tbForm').addEventListener('click',function(){showTab('form');});
   $('#tbPlayers').addEventListener('click',function(){showTab('players');});
+  $('#tbTable').addEventListener('click',function(){showTab('table');});
   $('#btnNew').addEventListener('click',function(){
     if(confirm('Formular leeren? (Die Spielerliste bleibt erhalten.)')){
       form=defForm();store.set(K_FORM,JSON.stringify(form));hydrate();showTab('form');
@@ -593,10 +647,15 @@ function wire(){
   $('#savePlayers').addEventListener('click',savePlayerList);
 }
 function showTab(which){
-  var f=which==='form';
-  $('#tabForm').hidden=!f;$('#tabPlayers').hidden=f;
-  $('#tbForm').setAttribute('aria-selected',f?'true':'false');
-  $('#tbPlayers').setAttribute('aria-selected',f?'false':'true');
+  var map={form:['#tabForm','#tbForm'],players:['#tabPlayers','#tbPlayers'],table:['#tabTable','#tbTable']};
+  Object.keys(map).forEach(function(k){
+    var on=k===which;
+    $(map[k][0]).hidden=!on;
+    $(map[k][1]).setAttribute('aria-selected',on?'true':'false');
+  });
+  /* Bild/Drucken/Neu gehoeren zum Bogen */
+  $('.actions').style.display=(which==='form')?'':'none';
+  window.scrollTo(0,0);
 }
 
 /* ---------- Spielerliste ---------- */
@@ -615,9 +674,134 @@ function savePlayerList(){
   savePlayers();
   $('#plist').value=out.join('\n');
   updateCount();refreshOptions();
+  if($('#kaderHost'))renderKader();
   var b=$('#savePlayers'),old=b.textContent;
   b.textContent='Gespeichert \u2713';
   setTimeout(function(){b.textContent=old;},1400);
+}
+
+/* ---------- Tabellen (aus spiele.js) ---------- */
+var TEAM_LABEL={I:'I. Mannschaft',II:'Reserve'};
+var OWN_RE=/nordhausen|zipplingen|zippl\./i;
+function crawlData(){return window.SVDJK_SPIELE||{};}
+function renderTables(){
+  var host=$('#tableHost');host.innerHTML='';
+  var tabs=crawlData().tabellen||{};
+  ['I','II'].forEach(function(k){
+    var t=tabs[k];
+    var card=el('div','card tcard');
+    var head=el('div','thl');
+    head.appendChild(el('h2',null,TEAM_LABEL[k]));
+    if(t&&t.liga)head.appendChild(el('span','liga',t.liga));
+    card.appendChild(head);
+    if(!t||!Array.isArray(t.rows)||!t.rows.length){
+      card.appendChild(el('p','empty','F\u00fcr diese Mannschaft liegt noch keine Tabelle vor. Sie kommt mit dem n\u00e4chsten automatischen Abruf.'));
+      host.appendChild(card);return;
+    }
+    var h='<table class="ltable"><thead><tr><th>Pl.</th><th class="tl">Mannschaft</th><th>Sp.</th>'
+      +'<th class="hs">G</th><th class="hs">U</th><th class="hs">V</th><th>Tore</th><th class="hs">Diff.</th><th>Pkt.</th></tr></thead><tbody>';
+    var hasUp=false,hasDown=false;
+    t.rows.forEach(function(r){
+      var cls=[];
+      if(OWN_RE.test(r.team))cls.push('own');
+      if(r.auf){cls.push('up');hasUp=true;}
+      if(r.ab){cls.push('down');hasDown=true;}
+      var name=esc(clean(r.team)).replace(/\((Flex|9er)\)/i,'<span class="flex">($1)</span>');
+      var diff=(typeof r.diff==='number'&&r.diff>0)?'+'+r.diff:esc(r.diff);
+      h+='<tr class="'+cls.join(' ')+'"><td class="pl">'+esc(r.pl)+'.</td><td class="tl">'+name+'</td>'
+        +'<td>'+esc(r.sp)+'</td><td class="hs">'+esc(r.g)+'</td><td class="hs">'+esc(r.u)+'</td><td class="hs">'+esc(r.v)+'</td>'
+        +'<td>'+esc(r.tore)+'</td><td class="hs">'+diff+'</td><td class="pkt">'+esc(r.pkt)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    card.insertAdjacentHTML('beforeend',h);
+    var meta=el('div','tmeta');
+    var left=el('span');
+    left.textContent='Stand: '+(t.stand||'?');
+    if(hasUp||hasDown){
+      var lg=el('span','legend');
+      if(hasUp)lg.insertAdjacentHTML('beforeend','<span><i style="background:#2f7d4f"></i>Aufstieg</span>');
+      if(hasDown)lg.insertAdjacentHTML('beforeend','<span><i style="background:#9a9a9a"></i>Abstieg</span>');
+      meta.appendChild(lg);
+    }
+    meta.appendChild(left);
+    if(t.url&&/^https:\/\/www\.fussball\.de\//.test(t.url)){
+      var a=el('a',null,'auf fussball.de \u2197');a.href=t.url;a.target='_blank';a.rel='noopener';
+      meta.appendChild(a);
+    }
+    card.appendChild(meta);
+    host.appendChild(card);
+  });
+}
+
+/* ---------- Kader (aus spiele.js) -> Spielerliste ---------- */
+function nameKey(n){
+  return clean(n).toLowerCase().replace(/[^a-z\u00e0-\u00ff\u00df\s-]/g,'').split(/[\s-]+/).filter(Boolean).sort().join(' ');
+}
+function currentListKeys(){
+  var keys={};
+  $('#plist').value.split(/\r?\n/).forEach(function(n){if(clean(n))keys[nameKey(n)]=1;});
+  return keys;
+}
+function kaderNames(){
+  var k=crawlData().kader||{},seen={},out=[];
+  ['I','II'].forEach(function(t){
+    (k[t]||[]).forEach(function(p){
+      var key=nameKey(p.name);
+      if(p.name&&!seen[key]){seen[key]=1;out.push(p.name);}
+    });
+  });
+  return out;
+}
+function renderKader(){
+  var host=$('#kaderHost');host.innerHTML='';
+  var k=crawlData().kader;
+  if(!k||(!(k.I||[]).length&&!(k.II||[]).length)){
+    var msg='Noch keine Kaderdaten. Sie kommen mit dem n\u00e4chsten automatischen Abruf aus den Spielberichten der Saison.';
+    host.appendChild(el('p','empty',msg));
+    return;
+  }
+  var inList=currentListKeys();
+  var off=k.offiziell||{};
+  var note=el('p','hint');
+  var gesperrt=['I','II'].some(function(t){return off[t]&&off[t].status==='nicht freigegeben';});
+  note.textContent='Aus den Aufstellungen der Spielberichte dieser Saison (Stand '+(k.stand||'?')+').'
+    +(gesperrt?' Der offizielle Kader ist auf fussball.de nicht freigegeben.':'')
+    +' Spieler ohne Namensfreigabe fehlen und m\u00fcssen von Hand erg\u00e4nzt werden.';
+  host.appendChild(note);
+  var fresh=0;
+  ['I','II'].forEach(function(t){
+    var list=k[t]||[];
+    var g=el('div','kgroup');
+    var h3=el('h3',null,TEAM_LABEL[t]+' ');
+    h3.appendChild(el('small',null,'\u00b7 '+list.length+' Spieler aus '+(k['spieleAusgewertet'+t]||0)+' Spielbericht(en)'));
+    g.appendChild(h3);
+    if(!list.length){g.appendChild(el('p','empty','Noch keine Spielberichte ausgewertet.'));host.appendChild(g);return;}
+    var ul=el('ul','klist');
+    list.forEach(function(p){
+      var li=el('li');
+      li.appendChild(el('span','kn',p.name));
+      var st=p.spiele?(p.spiele+' Sp.'+(p.startelf?' \u00b7 '+p.startelf+'\u00d7 Startelf':'')):'Kader';
+      li.appendChild(el('span','ks',st));
+      var isIn=!!inList[nameKey(p.name)];
+      if(!isIn)fresh++;
+      li.appendChild(el('span','badge '+(isIn?'drin':'neu'),isIn?'\u2713':'neu'));
+      ul.appendChild(li);
+    });
+    g.appendChild(ul);
+    host.appendChild(g);
+  });
+  var names=kaderNames().filter(function(n){return !inList[nameKey(n)];});
+  var act=el('div','kactions');
+  var b=el('button','btn',names.length?(names.length+' fehlende Namen \u00fcbernehmen'):'Alle Namen sind schon in der Liste');
+  b.type='button';b.disabled=!names.length;
+  b.addEventListener('click',function(){
+    var cur=$('#plist').value.replace(/\s+$/,'');
+    $('#plist').value=(cur?cur+'\n':'')+names.join('\n');
+    savePlayerList();
+    renderKader();
+  });
+  act.appendChild(b);
+  host.appendChild(act);
 }
 
 /* ---------- Statischer Bogen (Druck + PNG) ---------- */
@@ -748,14 +932,15 @@ function parseGame(g){
   var comp=clean(g.competition);
   /* nur Herren + Reserve: Jugend/Frauen raus */
   if(/junior|jugend|[A-G]\s*-?\s*jun|frauen|damen|bambini|\(9er\)/i.test(comp+' '+own))return null;
-  /* Reserve erkennt man am Flex-/II-Marker auf einer der beiden Seiten */
+  /* Reserve: vom Crawler eindeutig markiert, sonst am Flex-/II-Marker erkennen */
   var flex=/\(flex\)|\bflex\b/i.test(own+' '+opp);
   var ownII=/\bII\b|\b2\b|reserve/i.test(own.replace(ownRe,''));
-  var reserve=(flex||ownII)?1:0;
+  var tagged=(g.team==='I'||g.team==='II');
+  var reserve=tagged?(g.team==='II'?1:0):((flex||ownII)?1:0);
   /* Zusatz-Marker gehoeren nicht in den Gegnernamen auf dem Bogen */
   opp=clean(opp.replace(/\((flex|9er)\)/ig,''));
   return {iso:iso,time:tm?(('0'+tm[1]).slice(-2)+':'+tm[2]):'',home:ownHome,
-          own:own,opp:opp,comp:comp,team:reserve,marked:(flex||ownII)};
+          own:own,opp:opp,comp:comp,team:reserve,marked:(tagged||flex||ownII)};
 }
 /* Zwei Spiele am selben Tag ohne klaren Marker: das fruehere ist die Reserve */
 function splitSameDay(list){
@@ -995,6 +1180,8 @@ function init(){
     buildLineup();
     hydrate();
     renderPlayersTab();
+    renderKader();
+    renderTables();
     wire();wireImport();
     if(!store.persistent)$('#storeWarn').hidden=false;
   });

@@ -2,8 +2,12 @@ name: Spiele laden
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 4 * * *'    # taeglich 06:00 (Sommerzeit)
+    - cron: '0 19 * * 0'   # sonntags 21:00 - frische Tabellen nach dem Spieltag
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ['spiele_laden.py']   # nach einem Crawler-Update sofort laufen
 
 permissions:
   contents: write
@@ -12,13 +16,13 @@ jobs:
   crawl:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Spiele von fussball.de holen
+      - name: Spiele, Tabellen und Kader von fussball.de holen
         run: python spiele_laden.py
 
       - name: spiele.js einchecken
@@ -27,4 +31,5 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add spiele.js
           git diff --cached --quiet || git commit -m "Spiele aktualisiert"
+          git pull --rebase --quiet || true
           git push
