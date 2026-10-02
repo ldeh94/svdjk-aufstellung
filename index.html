@@ -115,6 +115,18 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .slot input.num:focus-visible{outline:2px solid var(--wein);outline-offset:1px;border-bottom-color:var(--dot)}
 .slot .pen,.slot .penval{flex:1;min-width:0}
 .slot.etw{margin-top:14px}
+.slot input.trikot{display:none;width:38px;flex:none;text-align:center;font:inherit;font-size:14px;font-weight:700;
+  border:1px solid #ccc;border-radius:4px;padding:2px 2px;background:#fff;color:var(--wein-dark)}
+.slot input.trikot:disabled{background:#f3f3f3;border-color:#e3e3e3}
+.mitnr .slot input.trikot{display:block}
+.slot .trik{flex:none;min-width:26px;text-align:right;font-weight:700;font-size:15px;color:var(--wein-dark)}
+.aufhead{position:relative}
+.nrlab{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;
+  letter-spacing:0;display:flex;align-items:center;gap:5px;cursor:pointer}
+.nrlab input{accent-color:var(--wein);width:16px;height:16px;margin:0}
+@media (max-width:700px){
+  #app .nrlab{position:static;transform:none;justify-content:center;margin-top:6px;letter-spacing:.3px;font-size:13px}
+}
 .etwlab{font-weight:600;letter-spacing:1px;font-size:13px;min-width:44px;text-align:right;flex:none}
 
 /* Fußzeile */
@@ -293,7 +305,8 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
     <button class="tab" id="tbPlayers" aria-selected="false">Spielerliste</button>
     <button class="tab" id="tbTable" aria-selected="false">Tabelle</button>
     <span class="actions">
-      <button class="act" id="btnPng" title="Als Bild speichern (z.&nbsp;B. für WhatsApp)">Bild (PNG)</button>
+      <button class="act" id="btnPng" title="Als Bild speichern (z.&nbsp;B. für WhatsApp)">Bild</button>
+      <button class="act" id="btnPdf" title="Als PDF (DIN A4) speichern">PDF</button>
       <button class="act" id="btnPrint" title="Drucken oder als PDF speichern">Drucken</button>
       <button class="act" id="btnNew" title="Formular leeren – Spielerliste bleibt">Neu</button>
     </span>
@@ -395,7 +408,8 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
         <div class="strike" id="strike1" style="grid-column:3;grid-row:2/8"></div>
       </div>
 
-      <div class="aufhead">AUFSTELLUNGEN</div>
+      <div class="aufhead">AUFSTELLUNGEN
+        <label class="nrlab"><input type="checkbox" id="mitNr">mit Trikotnummern</label></div>
       <div class="lineup">
         <div class="tcol">
           <div class="throw"><div class="th">I. MANNSCHAFT</div>
@@ -418,7 +432,7 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
     <div class="card">
       <h2>Spielerliste</h2>
       <p class="hint">Ein Name pro Zeile (Nachname Vorname). Torh&uuml;ter mit <b>(TW)</b> hinter dem Namen markieren,
-        z.&nbsp;B. &bdquo;Berndt Stefan (TW)&ldquo;. Beim Speichern wird sortiert und doppelte Eintr&auml;ge werden entfernt.</p>
+        Trikotnummer mit <b>#</b>, z.&nbsp;B. &bdquo;Berndt Stefan (TW) #1&ldquo;. Beim Speichern wird sortiert und doppelte Eintr&auml;ge werden entfernt.</p>
       <div class="row">
         <label for="saison">Saison</label>
         <input type="text" id="saison" placeholder="2026/27">
@@ -497,32 +511,44 @@ var store=(function(){
 })();
 
 /* ---------- Zustand ---------- */
-function defNums(t){var a=[],i;for(i=0;i<SLOTS;i++)a.push(t===0?(i+1)+'.':(i+SLOTS+1)+'.');return a;}
-/* Nummern der alten 15er-Version: unveraendert uebernommene Vorgaben werden ersetzt */
-function oldDefNums(t){var a=[],i;for(i=0;i<15;i++)a.push(t===0?(i+1)+'.':(i+16)+'.');return a;}
+/* beide Mannschaften zaehlen ab 1 */
+function defNums(t){var a=[],i;for(i=0;i<SLOTS;i++)a.push((i+1)+'.');return a;}
+/* fruehere Vorgaben (15er-Version: II ab 16; 20er-Version: II ab 21) werden ersetzt */
+function isOldDefNums(t,nums){
+  var j=nums.join('|');
+  function seq(n,start){var a=[],i;for(i=0;i<n;i++)a.push((i+start)+'.');return a.join('|');}
+  return j===seq(15,t===0?1:16)||j===seq(SLOTS,t===0?1:SLOTS+1);
+}
 function defTeam(t){return {beginn:'',abfahrt:'',abfahrtsort:'',treff:'',dressen:'',sonst:'',frei:false,slots:new Array(SLOTS).fill(''),nums:defNums(t),etw:''};}
-function defForm(){return {typ:'HEIMSPIEL',datum:'',gegner:'',spielort:'Nordhausen',spielortUrl:'',m:[defTeam(0),defTeam(1)]};}
+function defForm(){return {typ:'HEIMSPIEL',datum:'',gegner:'',spielort:'Nordhausen',spielortUrl:'',mitNr:false,m:[defTeam(0),defTeam(1)]};}
 var players,form;
 
 function parseJSON(s){if(!s)return null;try{var v=JSON.parse(s);return (v&&typeof v==='object')?v:null;}catch(e){return null;}}
 function normPlayers(p){
-  if(!p||!Array.isArray(p.spieler))return {saison:'2026/27',spieler:SEED.slice(),tw:[]};
+  if(!p||!Array.isArray(p.spieler))return {saison:'2026/27',spieler:SEED.slice(),tw:[],nr:{}};
   var out=[];for(var i=0;i<p.spieler.length;i++){var n=String(p.spieler[i]).trim();if(n)out.push(n);}
   var tw=(Array.isArray(p.tw)?p.tw:[]).map(String).filter(function(n){return out.indexOf(n)>=0;});
-  return {saison:String(p.saison||''),spieler:out,tw:tw};
+  var nr={};
+  if(p.nr&&typeof p.nr==='object')Object.keys(p.nr).forEach(function(n){var v=cleanNr(p.nr[n]);if(v&&out.indexOf(n)>=0)nr[n]=v;});
+  return {saison:String(p.saison||''),spieler:out,tw:tw,nr:nr};
 }
+function cleanNr(v){var m=String(v==null?'':v).match(/\d{1,3}/);return m?String(+m[0]):'';}
+function nrOf(n){return (n&&players.nr&&players.nr[n])||'';}
 function isTW(n){return !!n&&players.tw.indexOf(n)>=0;}
-/* 'Berndt Stefan (TW)' -> {name:'Berndt Stefan', tw:true} */
+/* 'Berndt Stefan (TW) #1' -> {name:'Berndt Stefan', tw:true, nr:'1'} */
 function splitTW(line){
-  var s=String(line||'').trim().replace(/\s+/g,' ');
+  var s=String(line||'').trim().replace(/\s+/g,' '),nr='';
+  var mn=s.match(/^(.*?)\s*#\s*(\d{1,3})\s*(.*)$/);
+  if(mn&&mn[1].trim()){nr=String(+mn[2]);s=(mn[1]+' '+mn[3]).trim();}
   var m=s.match(/^(.*?)[\s,;-]*\(?\bTW\b\)?\.?$/i);
-  return (m&&m[1].trim())?{name:m[1].trim(),tw:true}:{name:s,tw:false};
+  return (m&&m[1].trim())?{name:m[1].trim(),tw:true,nr:nr}:{name:s,tw:false,nr:nr};
 }
 function normForm(f){
   var d=defForm();
   if(!f)return d;
   d.typ=(f.typ==='AUSW\u00c4RTSSPIEL')?f.typ:'HEIMSPIEL';
   d.datum=String(f.datum||'');d.gegner=String(f.gegner||'');d.spielort=String(f.spielort||'');
+  d.mitNr=!!f.mitNr;
   d.spielortUrl=/^https:\/\//.test(String(f.spielortUrl||''))?String(f.spielortUrl):'';
   for(var t=0;t<2;t++){
     var src=(f.m&&f.m[t])||{};var m=d.m[t];
@@ -530,7 +556,7 @@ function normForm(f){
     m.frei=!!src.frei;
     var sl=Array.isArray(src.slots)?src.slots:[];
     for(var i=0;i<SLOTS;i++)m.slots[i]=String(sl[i]||'');
-    if(Array.isArray(src.nums)&&src.nums.join('|')!==oldDefNums(t).join('|')){
+    if(Array.isArray(src.nums)&&!isOldDefNums(t,src.nums.map(String))){
       for(var j=0;j<SLOTS;j++)if(src.nums[j]!=null)m.nums[j]=String(src.nums[j]);
     }
   }
@@ -562,15 +588,35 @@ function buildLineup(){
       var sel=el('select','pen');
       sel.dataset.team=String(t);sel.dataset.idx=String(i);
       sel.setAttribute('aria-label',(t===0?'I':'II')+'. Mannschaft, Zeile '+(i+1));
-      row.appendChild(sel);host.appendChild(row);
+      row.appendChild(sel);row.appendChild(nrInput(t,String(i)));host.appendChild(row);
     }
     var er=el('div','slot etw');
     er.appendChild(el('span','num etwlab','ETW:'));
     var es=el('select','pen');
     es.dataset.team=String(t);es.dataset.idx='etw';
     es.setAttribute('aria-label','Ersatztorwart '+(t===0?'I':'II')+'. Mannschaft');
-    er.appendChild(es);host.appendChild(er);
+    er.appendChild(es);er.appendChild(nrInput(t,'etw'));host.appendChild(er);
   }
+}
+function nrInput(t,idx){
+  var n=el('input','trikot');
+  n.type='text';n.inputMode='numeric';n.maxLength=3;n.autocomplete='off';n.placeholder='#';
+  n.dataset.nrteam=String(t);n.dataset.nridx=idx;
+  n.setAttribute('aria-label','Trikotnummer '+(idx==='etw'?'Ersatztorwart':'Zeile '+(+idx+1))+', '+(t===0?'I':'II')+'. Mannschaft');
+  return n;
+}
+function slotName(t,idx){return idx==='etw'?form.m[t].etw:form.m[t].slots[+idx];}
+/* Trikotnummer gehoert zum Spieler (Spielerliste) und wird hier nur angezeigt/bearbeitet */
+function refreshNrs(){
+  $$('input.trikot').forEach(function(n){
+    var name=slotName(+n.dataset.nrteam,n.dataset.nridx);
+    n.disabled=!name;
+    if(document.activeElement!==n)n.value=nrOf(name);
+  });
+}
+function applyMitNr(){
+  $('#mitNr').checked=form.mitNr;
+  $('#editSheet').classList.toggle('mitnr',form.mitNr);
 }
 
 function valueFor(sel){
@@ -610,7 +656,7 @@ function refreshLocks(t){
 }
 function refreshOptions(){
   $$('select.pen[data-team]').forEach(playerOptions);
-  refreshLocks(0);refreshLocks(1);
+  refreshLocks(0);refreshLocks(1);refreshNrs();
 }
 
 /* ---------- Gegnername an Feldbreite anpassen ---------- */
@@ -656,7 +702,7 @@ function hydrate(){
   $$('input.num[data-team]').forEach(function(n){
     n.value=form.m[+n.dataset.team].nums[+n.dataset.idx];
   });
-  refreshOptions();
+  refreshOptions();refreshNrs();applyMitNr();
 }
 function wire(){
   function w(id,fn){
@@ -690,8 +736,16 @@ function wire(){
     if(n&&n.matches&&n.matches('input.num[data-team]')){
       form.m[+n.dataset.team].nums[+n.dataset.idx]=n.value;
       saveForm();
+    }else if(n&&n.matches&&n.matches('input.trikot')){
+      var name=slotName(+n.dataset.nrteam,n.dataset.nridx);if(!name)return;
+      var v=cleanNr(n.value);
+      if(v)players.nr[name]=v;else delete players.nr[name];
+      savePlayers();
+      if(!plistDirty)$('#plist').value=listText();
+      $$('input.trikot').forEach(function(o){if(o!==n&&slotName(+o.dataset.nrteam,o.dataset.nridx)===name)o.value=v;});
     }
   });
+  $('#mitNr').addEventListener('change',function(e){form.mitNr=e.target.checked;applyMitNr();saveForm();});
   document.addEventListener('change',function(e){
     var s=e.target;
     if(s&&s.matches&&s.matches('select.pen[data-team]')){
@@ -699,8 +753,8 @@ function wire(){
       if(k==='etw')form.m[ti].etw=s.value;
       else if(k==='dressen')form.m[ti].dressen=s.value;
       else form.m[ti].slots[+k]=s.value;
-      refreshLocks(ti);saveForm();
-    }
+      refreshLocks(ti);refreshNrs();saveForm();
+    }else if(s&&s.matches&&s.matches('input.trikot')){s.value=cleanNr(s.value);}
   });
   $('#tbForm').addEventListener('click',function(){showTab('form');});
   $('#tbPlayers').addEventListener('click',function(){showTab('players');});
@@ -719,12 +773,16 @@ function wire(){
     }
   });
   $('#btnPng').addEventListener('click',exportPNG);
+  $('#btnPdf').addEventListener('click',exportPDF);
   window.addEventListener('resize',fitGegner);
   window.addEventListener('beforeprint',function(){
     var h=$('#printhost');h.innerHTML='';h.appendChild(renderStatic());
   });
   window.addEventListener('afterprint',function(){$('#printhost').innerHTML='';});
   $('#savePlayers').addEventListener('click',savePlayerList);
+  $('#plist').addEventListener('input',function(){plistDirty=true;});
+  /* ausstehende Formular-Aenderung beim Verlassen sofort sichern */
+  window.addEventListener('pagehide',function(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;store.set(K_FORM,JSON.stringify(form));}});
 }
 function showTab(which){
   var map={form:['#tabForm','#tbForm'],players:['#tabPlayers','#tbPlayers'],table:['#tabTable','#tbTable']};
@@ -740,9 +798,11 @@ function showTab(which){
 
 /* ---------- Spielerliste ---------- */
 function listText(){
-  return players.spieler.map(function(n){return n+(isTW(n)?' (TW)':'');}).join('\n');
+  return players.spieler.map(function(n){return n+(isTW(n)?' (TW)':'')+(nrOf(n)?' #'+nrOf(n):'');}).join('\n');
 }
+var plistDirty=false;
 function renderPlayersTab(){
+  plistDirty=false;
   $('#saison').value=players.saison||'';
   $('#plist').value=listText();
   updateCount();
@@ -751,18 +811,19 @@ function updateCount(){
   $('#pcount').textContent=players.spieler.length+' Spieler'+(players.tw.length?' \u00b7 '+players.tw.length+' TW':'');
 }
 function savePlayerList(){
-  var seen={},out=[],tw=[];
+  var seen={},out=[],tw=[],nr={};
   $('#plist').value.split(/\r?\n/).forEach(function(line){
     var e=splitTW(line);if(!e.name)return;
     var k=e.name.toLowerCase();
     if(!seen[k]){seen[k]=e.name;out.push(e.name);}
     if(e.tw&&tw.indexOf(seen[k])<0)tw.push(seen[k]);
+    if(e.nr)nr[seen[k]]=e.nr;
   });
   out.sort(function(a,b){return a.localeCompare(b,'de');});
-  players={saison:$('#saison').value.trim(),spieler:out,tw:tw};
+  players={saison:$('#saison').value.trim(),spieler:out,tw:tw,nr:nr};
   savePlayers();
-  $('#plist').value=listText();
-  updateCount();refreshOptions();
+  $('#plist').value=listText();plistDirty=false;
+  updateCount();refreshOptions();refreshNrs();
   if($('#kaderHost'))renderKader();
   var b=$('#savePlayers'),old=b.textContent;
   b.textContent='Gespeichert \u2713';
@@ -1076,14 +1137,15 @@ function renderStatic(){
   });
   info+='<div class="strike'+(m[0].frei?' on':'')+'" style="grid-column:2;grid-row:2/8"></div>';
   info+='<div class="strike'+(m[1].frei?' on':'')+'" style="grid-column:3;grid-row:2/8"></div>';
+  function tn(name){return (form.mitNr&&nrOf(name))?'<span class="trik">'+esc(nrOf(name))+'</span>':'';}
   function col(t){
     /* nur belegte Plaetze - die laengere Mannschaft bestimmt die Hoehe */
     var h='';
     for(var i=0;i<SLOTS;i++){
       if(!m[t].slots[i])continue;
-      h+='<div class="slot"><span class="num">'+esc(m[t].nums[i])+'</span>'+p(m[t].slots[i])+'</div>';
+      h+='<div class="slot"><span class="num">'+esc(m[t].nums[i])+'</span>'+p(m[t].slots[i])+tn(m[t].slots[i])+'</div>';
     }
-    if(m[t].etw)h+='<div class="slot etw"><span class="num etwlab">ETW:</span>'+p(m[t].etw)+'</div>';
+    if(m[t].etw)h+='<div class="slot etw"><span class="num etwlab">ETW:</span>'+p(m[t].etw)+tn(m[t].etw)+'</div>';
     return h;
   }
   var sh=el('div','sheet static');
@@ -1117,17 +1179,42 @@ function loadH2C(){
   });
   return h2cPromise;
 }
-function exportPNG(){
-  var b=$('#btnPng'),old=b.textContent;
-  b.textContent='\u2026';b.disabled=true;
-  loadH2C().then(function(){
+function loadScript(src){
+  return new Promise(function(res,rej){
+    var s=document.createElement('script');s.src=src;s.onload=res;
+    s.onerror=function(){s.remove();rej(new Error('load failed'));};
+    document.head.appendChild(s);
+  });
+}
+var jspdfPromise=null;
+function loadJsPDF(){
+  if(window.jspdf&&window.jspdf.jsPDF)return Promise.resolve();
+  if(!jspdfPromise)jspdfPromise=loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    .catch(function(e){jspdfPromise=null;throw e;});
+  return jspdfPromise;
+}
+/* Bogen unsichtbar rendern und abfotografieren */
+function sheetCanvas(){
+  return loadH2C().then(function(){
     var wrap=el('div');
     wrap.style.cssText='position:fixed;left:-9999px;top:0;width:820px;background:#fff;padding:10px;';
     wrap.appendChild(renderStatic());
     document.body.appendChild(wrap);
-    return window.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}).then(function(canvas){
-      wrap.remove();
-      var fname='Aufgebot_'+(form.datum||new Date().toISOString().slice(0,10))+'.png';
+    return window.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}).then(function(c){wrap.remove();return c;},
+      function(e){wrap.remove();throw e;});
+  });
+}
+function baseName(){return 'Aufgebot_'+(form.datum||new Date().toISOString().slice(0,10));}
+function busy(b,fn){
+  var old=b.textContent;b.textContent='…';b.disabled=true;
+  return fn().then(null,function(e){
+    alert('Export nicht möglich (Bibliothek konnte nicht geladen werden – offline?).\nAlternative: „Drucken“ und als PDF speichern.');
+  }).then(function(){b.textContent=old;b.disabled=false;});
+}
+function exportPNG(){
+  busy($('#btnPng'),function(){
+    return sheetCanvas().then(function(canvas){
+      var fname=baseName()+'.png';
       if(window.AndroidBridge&&AndroidBridge.savePng){
         AndroidBridge.savePng(fname,canvas.toDataURL('image/png'));
       }else{
@@ -1137,10 +1224,22 @@ function exportPNG(){
         a.click();
       }
     });
-  }).catch(function(){
-    alert('PNG-Export nicht m\u00f6glich (html2canvas konnte nicht geladen werden \u2013 offline?).\nAlternative: \u201eDrucken\u201c und als PDF speichern.');
-  }).then(function(){
-    b.textContent=old;b.disabled=false;
+  });
+}
+/* DIN A4 hochkant, Bogen eingepasst und oben zentriert */
+function exportPDF(){
+  busy($('#btnPdf'),function(){
+    return Promise.all([sheetCanvas(),loadJsPDF()]).then(function(r){
+      var canvas=r[0];
+      var pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+      var mw=210-2*10,mh=297-2*10;
+      var ratio=canvas.height/canvas.width;
+      var w=mw,h=w*ratio;
+      if(h>mh){h=mh;w=h/ratio;}
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(210-w)/2,10,w,h);
+      pdf.setProperties({title:'Aufgebot SV/DJK Nordhausen/Zipplingen'+(form.datum?' '+fmtDate(form.datum):'')});
+      pdf.save(baseName()+'.pdf');
+    });
   });
 }
 
