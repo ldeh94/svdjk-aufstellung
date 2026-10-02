@@ -48,6 +48,7 @@ URL_SQUAD = (BASE + "/ajax.team.squad/-/mode/PAGE/order-by/1/saison/{saison}/"
 URL_LINEUP = BASE + "/ajax.match.lineup/-/mode/PAGE/spiel/{gid}"
 URL_FONT = BASE + "/export.fontface/-/format/woff/id/{font}/type/font"
 URL_TEAM_PAGE = BASE + "/mannschaft/-/saison/{saison}/team-id/{tid}"
+URL_GAME = BASE + "/spiel/-/spiel/{gid}"
 
 OWN_RE = re.compile(r"nordhausen|zipplingen|zippl\.", re.I)
 DATE_RE = re.compile(r"(\d{1,2}\.\d{1,2}\.\d{2,4})")
@@ -67,6 +68,8 @@ HEADERS = {
 }
 PAUSE = 0.4            # Sekunden zwischen Abrufen (fussball.de schonen)
 LINEUP_RETRY_DAYS = 21  # so lange wird ein fehlender Spielbericht erneut gesucht
+LINEUP_VERSION = 2      # 2 = mit Torwart-Kennung
+VENUE_FRESH_DAYS = 10   # Spielorte naher Spiele taeglich neu pruefen
 
 _last_request = [0.0]
 
@@ -485,8 +488,51 @@ def parse_table(html_src: str):
     return rows
 
 
+_SURFACE = re.compile(r"^(rasen|kunstrasen|hart|natur|tennen|asche|kunststoff|halle|"
+                      r"kleinfeld|soccer)\w*$", re.I)
+_VENUE_PREFIX = re.compile(r"^(sportplatz|sportgel(?:ä|ae)nde|sportanlage|sportpark|"
+                           r"sportzentrum|stadion|hauptplatz|nebenplatz|rasenplatz|"
+                           r"kunstrasenplatz)\s+(.+)$", re.I)
+_CLUBISH = re.compile(r"\b(FC|SV|TSV|SG|SGM|DJK|TV|SC|VfB|VfL|VfR|Spfr|FV|TSG|SpVgg)\b")
+
+
+def short_venue(raw: str) -> str:
+    """'Rasenplatz, Sportplatz Pflaumloch, Kirchstr., 73469 Riesbuerg' -> 'Pflaumloch'.
+    Aufbau bei fussball.de: Platzart, Sportstaette, Strasse, PLZ Ort."""
+    parts = [clean(p) for p in (raw or "").split(",") if clean(p)]
+    if not parts:
+        return ""
+    if len(parts) > 1 and _SURFACE.match(parts[0]):
+        parts = parts[1:]
+    town = ""
+    for p in reversed(parts):
+        m = re.match(r"^\d{5}\s+(.+)$", p)
+        if m:
+            town = m.group(1)
+            break
+    name = clean(re.sub(r"\([^)]*\)", " ", parts[0]))
+    m = _VENUE_PREFIX.match(name)
+    if m:
+        toks = [t for t in m.group(2).split() if not re.fullmatch(r"\d+|[IVX]+|[A-Z]", t)]
+        rest = " ".join(toks)
+        if (rest and rest[0].isupper() and not re.search(r"\d|str\.|stra(ß|ss)e|weg\b", rest, re.I)
+                and not _CLUBISH.search(rest)):
+            return rest
+    return town or name
+
+
+def parse_venue(html_src: str):
+    """(Rohtext, Karten-Link) aus der Spielseite."""
+    root = dom(html_src)
+    stage = next((n for n in root.find_all("section") if n.attrs.get("id") == "stage"), root)
+    a = stage.find("a", cls="location") or root.find("a", cls="location")
+    if a is None:
+        return "", ""
+    return a.text(), a.attrs.get("href", "")
+
+
 def parse_lineup(html_src: str, known: dict):
-    """[(Name, player_id, Startelf?)] der eigenen Mannschaft oder None."""
+    """[(Name, player_id, Startelf?, Torwart?)] der eigenen Mannschaft oder None."""
     root = dom(html_src)
     ml = root.find(cls="match-lineup")
     if ml is None:
@@ -511,7 +557,8 @@ def parse_lineup(html_src: str, known: dict):
                 name = resolve_name(w, pid, known)
                 if pid and name:
                     known[pid] = name
-                players.append([name or "", pid, 1 if start else 0])
+                marks = {n.text() for n in w.find_all(cls="c") + w.find_all(cls="k")}
+                players.append([name or "", pid, 1 if start else 0, 1 if "T" in marks else 0])
     return players
 
 
@@ -609,6 +656,30 @@ def main():
                 games.append(g)
     games.sort(key=lambda g: (parse_date(g["date"]), g["time"]))
 
+    # --- Spielorte ----------------------------------------------------------
+    print("\nSpielorte ...")
+    venues = {k: v for k, v in (prev.get("venues") or {}).items()
+              if any(g["id"] == k for g in games)}
+    today_s = today.strftime("%d.%m.%Y")
+    for g in games:
+        if not g["id"]:
+            continue
+        c = venues.get(g["id"])
+        near = (parse_date(g["date"]) - today).days <= VENUE_FRESH_DAYS
+        if c and c.get("raw") and (not near or c.get("t") == today_s):
+            continue
+        try:
+            raw, url = parse_venue(fetch(URL_GAME.format(gid=g["id"]), quiet=True))
+        except Exception as e:          # noqa: BLE001
+            print(f"    {g['date']}: fehlgeschlagen ({e})")
+            continue
+        if raw:
+            venues[g["id"]] = {"raw": raw, "url": url, "ort": short_venue(raw), "t": today_s}
+    for g in games:
+        v = venues.get(g["id"]) or {}
+        g["ort"], g["venue"], g["venueUrl"] = v.get("ort", ""), v.get("raw", ""), v.get("url", "")
+    print(f"    {sum(1 for g in games if g['ort'])} von {len(games)} Spielen mit Spielort")
+
     # --- Tabellen -----------------------------------------------------------
     print("\nTabellen ...")
     tabellen = dict(prev.get("tabellen") or {})
@@ -642,7 +713,7 @@ def main():
     for k in ("I", "II"):
         for gid, d in past[k].items():
             c = lineups.get(gid)
-            if c and c.get("p"):
+            if c and c.get("p") and c.get("v", 1) >= LINEUP_VERSION:
                 continue                  # schon im Cache
             if c and c.get("leer") and (today - d).days > LINEUP_RETRY_DAYS:
                 continue                  # kein Spielbericht mehr zu erwarten
@@ -655,7 +726,7 @@ def main():
         except Exception as e:          # noqa: BLE001
             print(f"    -> fehlgeschlagen: {e}")
             continue
-        entry = {"t": k, "d": d.strftime("%d.%m.%Y")}
+        entry = {"t": k, "d": d.strftime("%d.%m.%Y"), "v": LINEUP_VERSION}
         if players:
             entry["p"] = players
             print(f"    -> {sum(1 for p in players if p[0])} Namen"
@@ -673,17 +744,20 @@ def main():
             if v.get("t") != k or not v.get("p"):
                 continue
             spiele += 1
-            for name, pid, start in v["p"]:
+            for row in v["p"]:
+                name, pid, start = row[0], row[1], row[2]
+                tw = row[3] if len(row) > 3 else 0
                 name = known.get(pid, name) if pid else name
                 if not name:
                     continue
-                a = agg.setdefault(pid or name, {"name": name, "spiele": 0, "startelf": 0})
+                a = agg.setdefault(pid or name, {"name": name, "spiele": 0, "startelf": 0, "tw": 0})
                 a["name"] = name
                 a["spiele"] += 1
                 a["startelf"] += start
+                a["tw"] += tw
         for name in offiziell.get(k, {}).get("spieler", []):
             if not any(a["name"] == name for a in agg.values()):
-                agg[name] = {"name": name, "spiele": 0, "startelf": 0}
+                agg[name] = {"name": name, "spiele": 0, "startelf": 0, "tw": 0}
         kader[k] = sorted(agg.values(), key=lambda a: (-a["spiele"], -a["startelf"], a["name"]))
         kader["spieleAusgewertet" + k] = spiele
         print(f"    {k:>2}: {len(kader[k])} Spieler aus {spiele} Spielbericht(en)")
@@ -701,6 +775,7 @@ def main():
         "tabellen": tabellen,
         "kader": kader,
         "lineups": lineups,
+        "venues": venues,
         "names": known,
     }
     OUT_FILE.write_text(PREFIX + json.dumps(payload, ensure_ascii=False) + ";",
@@ -711,7 +786,7 @@ def main():
           f" -> {OUT_FILE.name}")
     for g in games[:8]:
         print(f"  [{g['team']:>2}] {g['date']} {g['time']}  {g['homeTeam']} - "
-              f"{g['awayTeam']}  ({g['competition']})")
+              f"{g['awayTeam']}  ({g['competition']})  @ {g['ort'] or '?'}")
 
 
 if __name__ == "__main__":
