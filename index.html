@@ -214,6 +214,22 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
   border-top:1px solid #eee;background:#fafafa;border-radius:0 0 12px 12px}
 .mfoot #pickCount{flex:1;font-size:13px;color:#555;line-height:1.35}
 .mfoot #pickCount.err{color:#a3172b;font-weight:700}
+/* ---------- Uhrzeit-Scheibe 9-21 Uhr ---------- */
+.timein{cursor:pointer;caret-color:transparent}
+.timein:disabled{cursor:default}
+.tpanel{max-width:380px}
+.tsel{display:flex;justify-content:center;align-items:center;gap:4px;padding:12px 0 4px;font-size:40px;font-weight:700}
+.tsv{font:inherit;border:0;background:#f3eef0;color:#777;border-radius:10px;padding:2px 12px;cursor:pointer;min-width:84px}
+.tsv.on{background:var(--wein);color:#fff}
+.dial{position:relative;width:270px;height:270px;margin:10px auto 16px;border-radius:50%;background:#f3eef0}
+.dial .tk{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:0;background:transparent;
+  font:inherit;font-size:17px;font-weight:600;color:#222;cursor:pointer}
+.dial .tk:hover{background:#e6d6da}
+.dial .tk.on{background:var(--wein);color:#fff}
+.dial .tk:focus-visible{outline:2px solid var(--wein-dark);outline-offset:1px}
+.dial .hand{position:absolute;left:50%;top:50%;height:2px;background:var(--wein);transform-origin:0 50%;pointer-events:none}
+.dial .dot{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--wein)}
+.tspacer{flex:1}
 .btn.ghost{background:#fff;color:var(--wein-dark);border:1.2px solid var(--wein)}
 .btn.ghost:hover{background:#f6e7e9}
 .badge.tw{background:#1d1d1f;color:#fff}
@@ -373,12 +389,12 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
           <label class="freilab"><input type="checkbox" id="frei1">spielfrei</label></div>
 
         <div class="cell d labc"><span class="lab">SPIELBEGINN:</span></div>
-        <div class="cell d sep"><input type="time" id="beginn0" class="pen" step="300" aria-label="Spielbeginn I. Mannschaft"></div>
-        <div class="cell d sep"><input type="time" id="beginn1" class="pen" step="300" aria-label="Spielbeginn II. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="beginn0" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Spielbeginn I. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="beginn1" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Spielbeginn II. Mannschaft"></div>
 
         <div class="cell d labc"><span class="lab">ABFAHRT:</span></div>
-        <div class="cell d sep"><input type="time" id="abfahrt0" class="pen" step="300" aria-label="Abfahrt I. Mannschaft"></div>
-        <div class="cell d sep"><input type="time" id="abfahrt1" class="pen" step="300" aria-label="Abfahrt II. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="abfahrt0" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Abfahrt I. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="abfahrt1" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Abfahrt II. Mannschaft"></div>
 
         <div class="cell d labc"><span class="lab">ABFAHRTSORT:</span></div>
         <div class="cell d sep"><select id="abfahrtsort0" class="pen" aria-label="Abfahrtsort I. Mannschaft">
@@ -393,8 +409,8 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
         </select></div>
 
         <div class="cell d labc"><span class="lab">TREFFPUNKT:</span></div>
-        <div class="cell d sep"><input type="time" id="treff0" class="pen" step="300" aria-label="Treffpunkt I. Mannschaft"></div>
-        <div class="cell d sep"><input type="time" id="treff1" class="pen" step="300" aria-label="Treffpunkt II. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="treff0" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Treffpunkt I. Mannschaft"></div>
+        <div class="cell d sep"><input type="text" id="treff1" class="pen timein" readonly inputmode="none" placeholder="&#8212;" aria-label="Treffpunkt II. Mannschaft"></div>
 
         <div class="cell d labc"><span class="lab">DRESSEN:</span></div>
         <div class="cell d sep"><select id="dressen0" class="pen" data-team="0" data-idx="dressen" aria-label="Dressen I. Mannschaft"></select></div>
@@ -455,6 +471,21 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
   </section>
 
   <!-- ================= Mehrfachauswahl ================= -->
+  <div class="modal" id="timeModal" hidden role="dialog" aria-modal="true" aria-labelledby="timeTitle">
+    <div class="mpanel tpanel">
+      <div class="mhead"><h2 id="timeTitle">Uhrzeit</h2></div>
+      <div class="tsel">
+        <button type="button" id="tsH" class="tsv on">15</button><span>:</span><button type="button" id="tsM" class="tsv">00</button>
+      </div>
+      <div class="dial" id="dial"></div>
+      <div class="mfoot">
+        <button class="btn ghost" id="timeClear" type="button">Leeren</button>
+        <span class="tspacer"></span>
+        <button class="btn ghost" id="timeCancel" type="button">Abbrechen</button>
+        <button class="btn" id="timeOk" type="button">OK</button>
+      </div>
+    </div>
+  </div>
   <div class="modal" id="pickModal" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
     <div class="mpanel">
       <div class="mhead">
@@ -969,6 +1000,76 @@ function applyPick(){
 /* ---------- Tabellen (aus spiele.js) ---------- */
 var TEAM_LABEL={I:'I. Mannschaft',II:'Reserve'};
 var OWN_RE=/nordhausen|zipplingen|zippl\./i;
+/* ---------- Uhrzeit: eine Scheibe 9-21 Uhr, dann Minuten in 5er-Schritten ---------- */
+var HOURS=[9,10,11,12,13,14,15,16,17,18,19,20,21];
+var tp={input:null,h:15,m:0,mode:'h'};
+function pad2(n){return (n<10?'0':'')+n;}
+function openTime(inp){
+  if(inp.disabled)return;
+  tp.input=inp;
+  var v=/^(\d{1,2}):(\d{2})/.exec(inp.value||'');
+  if(v){tp.h=+v[1];tp.m=+v[2];}
+  else{
+    /* sinnvoller Startwert: Spielbeginn der Mannschaft minus 1 h (Treff/Abfahrt), sonst 15 Uhr */
+    var t=+inp.id.slice(-1),b=/^(\d{1,2}):(\d{2})/.exec(form.m[t].beginn||'');
+    tp.h=b?(inp.id.indexOf('beginn')===0?+b[1]:Math.max(9,+b[1]-1)):15;tp.m=b?+b[2]:0;
+  }
+  var lab=inp.getAttribute('aria-label')||'Uhrzeit';
+  $('#timeTitle').textContent=lab;
+  tp.mode='h';renderDial();
+  $('#timeModal').hidden=false;
+  setTimeout(function(){var on=$('#dial .tk.on');(on||$('#dial .tk')).focus();},30);
+}
+function closeTime(){$('#timeModal').hidden=true;if(tp.input)tp.input.focus();tp.input=null;}
+function setTime(v){
+  var i=tp.input;if(!i)return;
+  i.value=v;
+  i.dispatchEvent(new Event('input',{bubbles:true}));
+  i.dispatchEvent(new Event('change',{bubbles:true}));
+  closeTime();
+}
+function renderDial(){
+  var d=$('#dial');d.innerHTML='';
+  var vals=tp.mode==='h'?HOURS:[0,5,10,15,20,25,30,35,40,45,50,55];
+  var cur=tp.mode==='h'?tp.h:tp.m,R=108,C=135,sel=-1;
+  vals.forEach(function(v,i){
+    var a=(i/vals.length)*2*Math.PI-Math.PI/2;
+    var b=el('button','tk',tp.mode==='h'?String(v):pad2(v));
+    b.type='button';b.style.left=(C+R*Math.cos(a))+'px';b.style.top=(C+R*Math.sin(a))+'px';
+    b.setAttribute('aria-label',tp.mode==='h'?v+' Uhr':pad2(v)+' Minuten');
+    if(v===cur){b.classList.add('on');sel=i;}
+    b.addEventListener('click',function(){
+      if(tp.mode==='h'){tp.h=v;tp.mode='m';renderDial();var on=$('#dial .tk.on');(on||$('#dial .tk')).focus();}
+      else{tp.m=v;setTime(pad2(tp.h)+':'+pad2(tp.m));}
+    });
+    d.appendChild(b);
+  });
+  if(sel>=0){
+    var hand=el('div','hand');hand.style.width=(R-22)+'px';
+    hand.style.transform='rotate('+((sel/vals.length)*360-90)+'deg)';
+    d.insertBefore(hand,d.firstChild);
+  }
+  d.appendChild(el('div','dot'));
+  $('#tsH').textContent=pad2(tp.h);$('#tsM').textContent=pad2(tp.m);
+  $('#tsH').classList.toggle('on',tp.mode==='h');$('#tsM').classList.toggle('on',tp.mode==='m');
+}
+function wireTime(){
+  $$('input.timein').forEach(function(i){
+    i.addEventListener('click',function(){openTime(i);});
+    i.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();openTime(i);}
+      else if((e.key==='Delete'||e.key==='Backspace')&&i.value){e.preventDefault();tp.input=i;setTime('');}
+    });
+  });
+  $('#tsH').addEventListener('click',function(){tp.mode='h';renderDial();});
+  $('#tsM').addEventListener('click',function(){tp.mode='m';renderDial();});
+  $('#timeOk').addEventListener('click',function(){setTime(pad2(tp.h)+':'+pad2(tp.m));});
+  $('#timeClear').addEventListener('click',function(){setTime('');});
+  $('#timeCancel').addEventListener('click',closeTime);
+  $('#timeModal').addEventListener('click',function(e){if(e.target===this)closeTime();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#timeModal').hidden)closeTime();});
+}
+
 function crawlData(){return window.SVDJK_SPIELE||{};}
 function renderTables(){
   var host=$('#tableHost');host.innerHTML='';
@@ -1547,7 +1648,7 @@ function init(){
     renderPlayersTab();
     renderKader();
     renderTables();
-    wire();wireImport();
+    wire();wireTime();wireImport();
     if(!store.persistent)$('#storeWarn').hidden=false;
   });
 }
