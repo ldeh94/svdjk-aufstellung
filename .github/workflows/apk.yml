@@ -51,7 +51,8 @@ jobs:
           name: SVDJK-Aufstellung-apk
           path: ${{ runner.temp }}/SVDJK-Aufstellung.apk
 
-      - name: Als Release veroeffentlichen (fester Link: releases/latest/download/SVDJK-Aufstellung.apk)
+      # fester Link: releases/latest/download/SVDJK-Aufstellung.apk
+      - name: Als Release veroeffentlichen
         if: github.event_name != 'pull_request' && env.KEYSTORE_FILE != ''
         uses: softprops/action-gh-release@v2
         with:
