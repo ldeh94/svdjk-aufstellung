@@ -2,11 +2,20 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aufstellung">
+<script>
+/* iPhone/iPad: kein automatisches Hineinzoomen beim Antippen von Feldern (Pinch-Zoom bleibt moeglich) */
+(function(){var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+if(ios){var m=document.querySelector('meta[name=viewport]');m.setAttribute('content',m.getAttribute('content')+', maximum-scale=1');}})();
+</script>
 <title>Aufstellung · SV/DJK Nordhausen/Zipplingen</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#8a1c28">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
 :root{
   --wein:#8a1c28;
@@ -26,6 +35,8 @@ body{background:var(--desk);color:var(--ink);
 /* ---------- Toolbar (nur Bildschirm) ---------- */
 .bar{position:sticky;top:0;z-index:20;background:var(--wein);color:#fff;
   display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 14px;
+  padding-top:calc(8px + env(safe-area-inset-top));
+  padding-left:calc(14px + env(safe-area-inset-left));padding-right:calc(14px + env(safe-area-inset-right));
   box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .brand{font-weight:800;letter-spacing:.5px;font-size:15px;margin-right:8px;white-space:nowrap}
 .tab,.act{background:transparent;border:1px solid rgba(255,255,255,.55);color:#fff;
@@ -230,6 +241,13 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .dial .hand{position:absolute;left:50%;top:50%;height:2px;background:var(--wein);transform-origin:0 50%;pointer-events:none}
 .dial .dot{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--wein)}
 .tspacer{flex:1}
+.sharebar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;
+  display:flex;align-items:center;gap:12px;background:#222;color:#fff;border-radius:12px;padding:10px 12px 10px 16px;
+  box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:14.5px;width:max-content;max-width:calc(100% - 32px)}
+.sharebar span{white-space:nowrap}
+.sharebar button{white-space:nowrap;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+.sharebar .sgo{background:var(--wein);color:#fff}
+.sharebar .sx{background:transparent;color:#bbb;padding:8px 6px}
 .btn.ghost{background:#fff;color:var(--wein-dark);border:1.2px solid var(--wein)}
 .btn.ghost:hover{background:#f6e7e9}
 .badge.tw{background:#1d1d1f;color:#fff}
@@ -253,7 +271,7 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
   #app .ltable{font-size:13px}
   #app .ltable .hs{display:none}
   #app .ltable td,#app .ltable th{padding:6px 4px}
-  #app .bar{padding:8px 10px;gap:6px}
+  #app .bar{padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top));gap:6px}
   #app .brand{width:100%;margin:0}
 }
 
@@ -1318,15 +1336,52 @@ function exportPNG(){
       var fname=baseName()+'.png';
       if(window.AndroidBridge&&AndroidBridge.savePng){
         AndroidBridge.savePng(fname,canvas.toDataURL('image/png'));
-      }else{
-        var a=document.createElement('a');
-        a.download=fname;
-        a.href=canvas.toDataURL('image/png');
-        a.click();
+        return;
       }
+      return new Promise(function(res){canvas.toBlob(res,'image/png');}).then(function(blob){
+        return deliver(blob,fname,'image/png');
+      });
     });
   });
 }
+/* Handy (iPhone, Android-Browser): direkt ins Teilen-Menue (WhatsApp ...), sonst herunterladen */
+function canShareFile(file){
+  try{return !!(file&&navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));}catch(e){return false;}
+}
+function download(blob,name){
+  var u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u);},10000);
+}
+function deliver(blob,name,mime){
+  var file=null;
+  try{file=new File([blob],name,{type:mime});}catch(e){}
+  var touch=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
+  if(!touch||!canShareFile(file)){download(blob,name);return Promise.resolve();}
+  return navigator.share({files:[file]}).catch(function(e){
+    if(e&&e.name==='AbortError')return;            /* selbst abgebrochen */
+    if(e&&e.name==='NotAllowedError'){shareBar(file,blob);return;} /* Erzeugen dauerte zu lange - nochmal tippen */
+    download(blob,name);
+  });
+}
+/* Safari erlaubt Teilen nur direkt nach einem Tipp - dauert das Erzeugen zu lange, gibt es diesen Knopf */
+function shareBar(file,blob){
+  var old=$('.sharebar');if(old)old.remove();
+  var b=el('div','sharebar');
+  b.appendChild(el('span',null,(file.type==='application/pdf'?'PDF':'Bild')+' ist fertig'));
+  var go=el('button','sgo','Teilen');go.type='button';
+  var dl=el('button','sx','Speichern');dl.type='button';
+  var x=el('button','sx','\u2715');x.type='button';x.setAttribute('aria-label','Schlie\u00dfen');
+  go.addEventListener('click',function(){
+    navigator.share({files:[file]}).then(function(){b.remove();},function(e){if(!e||e.name!=='AbortError')download(blob,file.name);b.remove();});
+  });
+  dl.addEventListener('click',function(){download(blob,file.name);b.remove();});
+  x.addEventListener('click',function(){b.remove();});
+  b.appendChild(go);b.appendChild(dl);b.appendChild(x);
+  document.body.appendChild(b);
+  setTimeout(function(){b.remove();},30000);
+}
+
 /* DIN A4 hochkant, Bogen eingepasst und oben zentriert */
 function exportPDF(){
   busy($('#btnPdf'),function(){
@@ -1342,7 +1397,7 @@ function exportPDF(){
       if(window.AndroidBridge&&AndroidBridge.saveFile){
         AndroidBridge.saveFile(baseName()+'.pdf','application/pdf',pdf.output('datauristring'));
       }else{
-        pdf.save(baseName()+'.pdf');
+        return deliver(pdf.output('blob'),baseName()+'.pdf','application/pdf');
       }
     });
   });
@@ -1654,6 +1709,9 @@ function init(){
     renderTables();
     wire();wireTime();wireImport();
     if(!store.persistent)$('#storeWarn').hidden=false;
+    if(window.matchMedia&&matchMedia('(pointer:coarse)').matches&&!window.AndroidBridge){
+      setTimeout(function(){loadH2C().catch(function(){});loadJsPDF().catch(function(){});},2500);
+    }
   });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
