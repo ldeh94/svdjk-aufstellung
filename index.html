@@ -1339,7 +1339,11 @@ function exportPDF(){
       if(h>mh){h=mh;w=h/ratio;}
       pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(210-w)/2,10,w,h);
       pdf.setProperties({title:'Aufgebot SV/DJK Nordhausen/Zipplingen'+(form.datum?' '+fmtDate(form.datum):'')});
-      pdf.save(baseName()+'.pdf');
+      if(window.AndroidBridge&&AndroidBridge.saveFile){
+        AndroidBridge.saveFile(baseName()+'.pdf','application/pdf',pdf.output('datauristring'));
+      }else{
+        pdf.save(baseName()+'.pdf');
+      }
     });
   });
 }
@@ -1565,12 +1569,12 @@ function wireImport(){
     var p=$('#impPanel');p.hidden=!p.hidden;
     this.setAttribute('aria-expanded',p.hidden?'false':'true');
     if(!p.hidden&&!loadedGames.length){
-      if(!loadFromFile()&&window.AndroidBridge&&!nativeTried){
+      if(!loadFromFile()&&window.AndroidBridge&&AndroidBridge.fetchUrl&&!nativeTried){
         nativeTried=true;nativeCrawl();
       }
     }
   });
-  if(window.AndroidBridge){
+  if(window.AndroidBridge&&AndroidBridge.fetchUrl){
     $('#nativeRow').hidden=false;
     $('#btnNativeLoad').addEventListener('click',nativeCrawl);
   }

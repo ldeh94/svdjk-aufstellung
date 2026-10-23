@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SV/DJK Aufstellung</string>
+    <color name="icon_bg">#FDFCF8</color>
+    <color name="wein">#8A1C28</color>
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/wein</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">@color/icon_bg</item>
+        <item name="android:colorAccent">@color/wein</item>
+    </style>
+</resources>
