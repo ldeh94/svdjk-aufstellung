@@ -1,0 +1,64 @@
+name: Android-App bauen
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/apk.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/apk.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # Der Schluessel liegt verschluesselt im Repo (android/svdjk-release.jks),
+      # das Passwort nur als Secret ANDROID_KEYSTORE_PASSWORD.
+      - name: Signierschluessel bereitstellen
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "KEYSTORE_FILE=$GITHUB_WORKSPACE/android/svdjk-release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret ANDROID_KEYSTORE_PASSWORD fehlt - nur Test-Build mit Debug-Signatur, kein Release."
+          fi
+
+      - name: APK bauen
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          gradle --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/SVDJK-Aufstellung.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SVDJK-Aufstellung-apk
+          path: ${{ runner.temp }}/SVDJK-Aufstellung.apk
+
+      - name: Als Release veroeffentlichen (fester Link: releases/latest/download/SVDJK-Aufstellung.apk)
+        if: github.event_name != 'pull_request' && env.KEYSTORE_FILE != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-${{ github.run_number }}
+          name: Android-App 1.${{ github.run_number }}
+          make_latest: true
+          body: |
+            Android-App zum Aufstellungsbogen. Auf dem Handy herunterladen, oeffnen, Installation aus dieser Quelle erlauben.
+            Die App laedt https://ldeh94.github.io/svdjk-aufstellung/ - Inhalte aktualisieren sich automatisch.
+          files: ${{ runner.temp }}/SVDJK-Aufstellung.apk
