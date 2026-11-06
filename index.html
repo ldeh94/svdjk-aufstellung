@@ -56,8 +56,8 @@ body{background:var(--desk);color:var(--ink);
 .lab{font-size:12.5px;letter-spacing:1px;font-weight:600}
 
 /* Stift-Handschrift (Eingaben + statische Werte) */
-.pen,.penval{font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;
-  color:var(--pen);font-size:17px}
+.pen,.penval{font-family:Arial,Helvetica,"Liberation Sans",sans-serif;
+  color:var(--pen);font-size:18.5px}
 select.pen,input.pen,textarea.pen{background:transparent;border:0;
   border-bottom:2px dotted var(--dot);border-radius:0;padding:2px 2px 3px;width:100%}
 select.pen{cursor:pointer}
@@ -79,7 +79,7 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .amline{display:grid;grid-template-columns:auto 165px 1fr;align-items:baseline;gap:12px;margin:8px 0 6px}
 .amline .gg{text-align:center;font-weight:600;letter-spacing:2px;font-size:14px}
 .gegnerbox{border:2px solid var(--line);padding:6px 10px;min-height:44px}
-.gegnerbox .pen,.gegnerbox .penval{border-bottom:0;text-align:center;font-size:21px}
+.gegnerbox .pen,.gegnerbox .penval{border-bottom:0;text-align:center;font-size:23px;font-weight:700}
 .headR{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px}
 .headR .crest{width:108px;height:auto;display:block}
 .svdjk{font-weight:900;font-style:italic;font-size:19px;letter-spacing:1px;white-space:nowrap}
@@ -95,7 +95,8 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .info .cell.sep{border-left:1px dashed var(--dot)}
 .info .cell.d{border-top:1px dotted var(--dot)}
 .info .cell.labc{align-items:center}
-.info .pen,.info .penval{font-size:16px}
+.info .pen,.info .penval{font-size:17.5px}
+.info .cell .penval{flex:1;min-width:0}
 .strike{display:none;pointer-events:none;position:absolute;top:0;left:0;right:0;bottom:0}
 .strike.on{display:block;background:linear-gradient(to top right,
   transparent calc(50% - 1.2px),var(--pen) calc(50% - 1.2px),
@@ -118,8 +119,12 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .pick:hover{background:var(--wein-dark)}
 .pick:focus-visible{outline:2px solid var(--wein-dark);outline-offset:2px}
 .tcol.tr2{border-left:1px dashed var(--dot)}
+.lineup.solo{grid-template-columns:1fr}
+.lineup.solo .tcol.tr2{border-left:0}
+.lineup .tcol.off{display:none}
+.info.solo{grid-template-columns:minmax(96px,150px) 1fr}
 .slot{display:flex;align-items:baseline;gap:8px;margin-top:9px}
-.slot .num{min-width:34px;text-align:right;font-size:13px;color:#333;flex:none}
+.slot .num{min-width:34px;text-align:right;font-size:15px;color:#333;flex:none}
 .slot input.num{width:46px;border:0;background:transparent;font-family:inherit;
   padding:0 0 1px;border-bottom:1px dotted transparent;border-radius:0}
 .slot input.num:hover{border-bottom-color:var(--dot)}
@@ -223,6 +228,13 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
 .roles button[aria-pressed="true"]{background:var(--wein);color:#fff}
 .mfoot{display:flex;align-items:center;gap:10px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
   border-top:1px solid #eee;background:#fafafa;border-radius:0 0 12px 12px}
+.zuflab{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#333;cursor:pointer;margin-top:9px}
+.zuflab .zufhint{font-weight:400;color:#777}
+.mhead .zuflab input{width:18px;height:18px;flex:none;padding:0}
+.zuflab input{accent-color:var(--wein);width:17px;height:17px;margin:0}
+.mlist .pos{flex:none;min-width:24px;height:22px;border-radius:999px;background:var(--wein);color:#fff;
+  font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+.mlist .pos.z{background:#ddd;color:#555}
 .mfoot #pickCount{flex:1;font-size:13px;color:#555;line-height:1.35}
 .mfoot #pickCount.err{color:#a3172b;font-weight:700}
 /* ---------- Uhrzeit-Scheibe 9-21 Uhr ---------- */
@@ -509,6 +521,7 @@ span.typword{font-weight:700;letter-spacing:3px;font-size:15px}
       <div class="mhead">
         <h2 id="pickTitle">Spieler w&auml;hlen</h2>
         <input type="search" id="pickSearch" placeholder="Suchen &hellip;" autocomplete="off" aria-label="Spieler suchen">
+        <label class="zuflab"><input type="checkbox" id="pickZufall">Reihenfolge zuf&auml;llig <span class="zufhint">(sonst wie angeklickt, TW immer Platz&nbsp;1)</span></label>
       </div>
       <div class="mhint" id="pickHint"></div>
       <ul class="mlist" id="pickList" tabindex="-1"></ul>
@@ -569,7 +582,7 @@ function isOldDefNums(t,nums){
   return j===seq(15,t===0?1:16)||j===seq(SLOTS,t===0?1:SLOTS+1);
 }
 function defTeam(t){return {beginn:'',abfahrt:'',abfahrtsort:'',treff:'',dressen:'',sonst:'',frei:false,slots:new Array(SLOTS).fill(''),nums:defNums(t),etw:''};}
-function defForm(){return {typ:'HEIMSPIEL',datum:'',gegner:'',spielort:'Nordhausen',spielortUrl:'',mitNr:false,m:[defTeam(0),defTeam(1)]};}
+function defForm(){return {typ:'HEIMSPIEL',datum:'',gegner:'',spielort:'Nordhausen',spielortUrl:'',mitNr:false,zufall:false,m:[defTeam(0),defTeam(1)]};}
 var players,form;
 
 function parseJSON(s){if(!s)return null;try{var v=JSON.parse(s);return (v&&typeof v==='object')?v:null;}catch(e){return null;}}
@@ -598,6 +611,7 @@ function normForm(f){
   d.typ=(f.typ==='AUSW\u00c4RTSSPIEL')?f.typ:'HEIMSPIEL';
   d.datum=String(f.datum||'');d.gegner=String(f.gegner||'');d.spielort=String(f.spielort||'');
   d.mitNr=!!f.mitNr;
+  d.zufall=!!f.zufall;
   d.spielortUrl=/^https:\/\//.test(String(f.spielortUrl||''))?String(f.spielortUrl):'';
   for(var t=0;t<2;t++){
     var src=(f.m&&f.m[t])||{};var m=d.m[t];
@@ -630,7 +644,8 @@ function buildLineup(){
     for(var i=0;i<SLOTS;i++){
       var row=el('div','slot');
       var num=el('input','num');
-      num.type='text';num.autocomplete='off';
+      num.type='text';num.autocomplete='off';num.inputMode='numeric';num.maxLength=3;
+      num.title='Zahl \u00e4ndern: Spieler r\u00fcckt auf diesen Platz, der bisherige kommt ans Ende';
       num.dataset.team=String(t);num.dataset.idx=String(i);
       num.setAttribute('aria-label','Nummer Zeile '+(i+1)+', '+(t===0?'I':'II')+'. Mannschaft');
       row.appendChild(num);
@@ -663,6 +678,32 @@ function refreshNrs(){
     if(document.activeElement!==n)n.value=nrOf(name);
   });
 }
+/* Nummer = Position; leere Zeilen bekommen keine Nummer */
+function refreshNums(){
+  $$('input.num[data-team]').forEach(function(n){
+    var t=+n.dataset.team,i=+n.dataset.idx;
+    n.value=form.m[t].slots[i]?(i+1)+'.':'';
+    n.disabled=!form.m[t].slots[i];
+  });
+}
+/* Spieler auf Platz N setzen: wer dort stand, wird hinten angereiht */
+function moveSlot(t,from,N){
+  var list=form.m[t].slots.filter(Boolean),p=form.m[t].slots[from];
+  if(!p)return;
+  list.splice(list.indexOf(p),1);
+  if(N>=1&&N<=list.length){
+    var displaced=list[N-1];
+    list[N-1]=p;list.push(displaced);
+  }else list.push(p);
+  var slots=new Array(SLOTS).fill('');
+  list.slice(0,SLOTS).forEach(function(n,i){slots[i]=n;});
+  form.m[t].slots=slots;
+}
+function applySolo(){
+  var f0=form.m[0].frei,f1=form.m[1].frei,solo=f0!==f1;
+  $('#editSheet .lineup').classList.toggle('solo',solo);
+  $$('#editSheet .lineup .tcol').forEach(function(c,i){c.classList.toggle('off',solo&&form.m[i].frei);});
+}
 function applyMitNr(){
   $('#mitNr').checked=form.mitNr;
   $('#editSheet').classList.toggle('mitnr',form.mitNr);
@@ -676,14 +717,17 @@ function valueFor(sel){
 }
 function playerOptions(sel){
   var current=valueFor(sel);
-  var list=players.spieler.slice();
+  var dress=sel.dataset.idx==='dressen',t=+sel.dataset.team;
+  var base=dress?form.m[t].slots.concat([form.m[t].etw]).filter(Boolean):players.spieler;
+  var list=base.slice();
   if(current&&list.indexOf(current)<0)list.push(current);
   list.sort(function(a,b){return a.localeCompare(b,'de');});
   sel.innerHTML='';
   var o0=document.createElement('option');o0.value='';o0.textContent='\u2014';sel.appendChild(o0);
   for(var i=0;i<list.length;i++){
     var o=document.createElement('option');o.value=list[i];
-    o.textContent=list[i]+(isTW(list[i])?' (TW)':'')+(players.spieler.indexOf(list[i])<0?' (nicht in Liste)':'');
+    o.textContent=list[i]+(isTW(list[i])?' (TW)':'')+
+      (dress?(base.indexOf(list[i])<0?' (nicht aufgestellt)':''):(players.spieler.indexOf(list[i])<0?' (nicht in Liste)':''));
     sel.appendChild(o);
   }
   sel.value=current||'';
@@ -705,7 +749,7 @@ function refreshLocks(t){
 }
 function refreshOptions(){
   $$('select.pen[data-team]').forEach(playerOptions);
-  refreshLocks(0);refreshLocks(1);refreshNrs();
+  refreshLocks(0);refreshLocks(1);refreshNrs();refreshNums();
 }
 
 /* ---------- Gegnername an Feldbreite anpassen ---------- */
@@ -714,7 +758,7 @@ function fitFontSize(text,refEl,base,min){
   if(!text)return base;
   if(!fitCtx)fitCtx=document.createElement('canvas').getContext('2d');
   var cs=getComputedStyle(refEl);
-  fitCtx.font='400 '+base+'px '+cs.fontFamily;
+  fitCtx.font=(cs.fontWeight||'400')+' '+base+'px '+cs.fontFamily;
   var w=fitCtx.measureText(text).width;
   var avail=refEl.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0)-8;
   if(avail<=0||w<=avail)return base;
@@ -748,9 +792,8 @@ function hydrate(){
     $('#frei'+t).checked=form.m[t].frei;
     applyFrei(t);
   }
-  $$('input.num[data-team]').forEach(function(n){
-    n.value=form.m[+n.dataset.team].nums[+n.dataset.idx];
-  });
+  applySolo();
+  refreshNums();
   refreshOptions();refreshNrs();applyMitNr();
 }
 function wire(){
@@ -768,6 +811,7 @@ function wire(){
   $('#pickCancel').addEventListener('click',closePick);
   $('#pickOk').addEventListener('click',applyPick);
   $('#pickSearch').addEventListener('input',renderPick);
+  $('#pickZufall').addEventListener('change',function(e){form.zufall=e.target.checked;saveForm();renderPick();});
   $('#pickModal').addEventListener('click',function(e){if(e.target===this)closePick();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#pickModal').hidden)closePick();});
   var t;
@@ -776,15 +820,17 @@ function wire(){
     ['beginn','abfahrt','abfahrtsort','treff','sonst'].forEach(function(f){w(f+String(t),mk(t,f));});
     (function(tt){
       $('#frei'+tt).addEventListener('change',function(e){
-        form.m[tt].frei=e.target.checked;applyFrei(tt);saveForm();
+        form.m[tt].frei=e.target.checked;applyFrei(tt);applySolo();saveForm();
       });
     })(t);
   }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&e.target.matches&&e.target.matches('input.num[data-team]'))e.target.blur();
+  });
   document.addEventListener('input',function(e){
     var n=e.target;
     if(n&&n.matches&&n.matches('input.num[data-team]')){
-      form.m[+n.dataset.team].nums[+n.dataset.idx]=n.value;
-      saveForm();
+      /* erst beim Verlassen/Enter umsortieren (change) */
     }else if(n&&n.matches&&n.matches('input.trikot')){
       var name=slotName(+n.dataset.nrteam,n.dataset.nridx);if(!name)return;
       var v=cleanNr(n.value);
@@ -802,8 +848,15 @@ function wire(){
       if(k==='etw')form.m[ti].etw=s.value;
       else if(k==='dressen')form.m[ti].dressen=s.value;
       else form.m[ti].slots[+k]=s.value;
-      refreshLocks(ti);refreshNrs();saveForm();
-    }else if(s&&s.matches&&s.matches('input.trikot')){s.value=cleanNr(s.value);}
+      if(k!=='dressen')playerOptions($('#dressen'+ti));
+      refreshLocks(ti);refreshNrs();refreshNums();saveForm();
+    }else if(s&&s.matches&&s.matches('input.trikot')){s.value=cleanNr(s.value);
+    }else if(s&&s.matches&&s.matches('input.num[data-team]')){
+      var tn=+s.dataset.team,fi=+s.dataset.idx,mm=/\d+/.exec(s.value);
+      if(mm&&+mm[0]!==fi+1&&form.m[tn].slots[fi]){
+        moveSlot(tn,fi,+mm[0]);refreshOptions();saveForm();
+      }else refreshNums();
+    }
   });
   $('#tbForm').addEventListener('click',function(){showTab('form');});
   $('#tbPlayers').addEventListener('click',function(){showTab('players');});
@@ -900,11 +953,13 @@ function pickFieldCount(){
 }
 function openPick(t){
   var m=form.m[t];
-  pick={team:t,sel:{},order:[]};
+  pick={team:t,sel:{},order:[],seq:[]};
   m.slots.forEach(function(n,i){
     if(!n)return;
     pick.sel[n]=(i===0&&isTW(n))?'TW':'F';
+    pick.seq.push(n);
   });
+  $('#pickZufall').checked=form.zufall;
   if(m.etw)pick.sel[m.etw]='ETW';
   /* Liste: Spielerliste + evtl. schon eingetragene Namen, die dort fehlen */
   var names=players.spieler.slice();
@@ -945,6 +1000,7 @@ function defaultRole(n){
 function renderPick(){
   var q=clean($('#pickSearch').value).toLowerCase();
   var host=$('#pickList');host.innerHTML='';
+  var posMap={};pickLineup().forEach(function(n,i){posMap[n]=i+1;});
   pick.order.forEach(function(n){
     if(q&&n.toLowerCase().indexOf(q)<0&&!Object.prototype.hasOwnProperty.call(pick.sel,n))return;
     var on=Object.prototype.hasOwnProperty.call(pick.sel,n);
@@ -960,12 +1016,16 @@ function renderPick(){
           return;
         }
         pick.sel[n]=role;
+        if(pick.seq.indexOf(n)<0)pick.seq.push(n);
       }else{
         delete pick.sel[n];
+        pick.seq.splice(pick.seq.indexOf(n),1);
       }
       renderPick();
     });
     lab.appendChild(cb);
+    var pos=posMap[n];
+    if(pos)lab.appendChild(el('span','pos'+(form.zufall&&pos>1?' z':''),form.zufall&&pos>1?'?':String(pos)));
     lab.appendChild(el('span','mn',n));
     li.appendChild(lab);
     if(isTW(n)){
@@ -997,24 +1057,25 @@ function countPick(err){
   c.textContent=pickFieldCount()+' von '+SLOTS+' Pl\u00e4tzen'
     +(tw?' \u00b7 TW: '+tw.split(' ')[0]:'')+(etw?' \u00b7 ETW: '+etw.split(' ')[0]:'');
 }
+/* Reihenfolge: TW auf 1, danach wie angeklickt (oder zufaellig) */
+function pickLineup(rand){
+  var tw=pickHolder('TW');
+  var field=pick.seq.filter(function(n){return pick.sel[n]==='F';});
+  if(rand)field=shuffle(field);
+  return (tw?[tw]:[]).concat(field);
+}
 function applyPick(){
-  var t=pick.team,tw=null,etw='',field=[];
-  pick.order.concat(Object.keys(pick.sel)).forEach(function(n){
-    if(!Object.prototype.hasOwnProperty.call(pick.sel,n))return;
-    if(field.indexOf(n)>=0||n===tw||n===etw)return;
-    var r=pick.sel[n];
-    if(r==='TW')tw=n;else if(r==='ETW')etw=n;else field.push(n);
-  });
-  /* Platz 1 = Torwart, alle weiteren Plaetze zufaellig */
-  var order=(tw?[tw]:[]).concat(shuffle(field));
+  form.zufall=$('#pickZufall').checked;
+  var t=pick.team,etw=pickHolder('ETW')||'';
+  var order=pickLineup(form.zufall);
   var slots=new Array(SLOTS).fill('');
   order.slice(0,SLOTS).forEach(function(n,i){slots[i]=n;});
   form.m[t].slots=slots;
   form.m[t].etw=etw;
+  if(form.m[t].dressen&&order.concat([etw]).indexOf(form.m[t].dressen)<0)form.m[t].dressen='';
   refreshOptions();saveForm();
   closePick();
 }
-
 /* ---------- Tabellen (aus spiele.js) ---------- */
 var TEAM_LABEL={I:'I. Mannschaft',II:'Reserve'};
 var OWN_RE=/nordhausen|zipplingen|zippl\./i;
@@ -1248,21 +1309,25 @@ function renderStatic(){
       default:return p(m[t].sonst);
     }
   }
-  var info='<div class="cell"></div><div class="cell th sep">I. MANNSCHAFT</div><div class="cell th sep">II. MANNSCHAFT</div>';
+  /* nur ein Spiel -> nur diese Mannschaft */
+  var teams=(m[0].frei!==m[1].frei)?[m[0].frei?1:0]:[0,1];
+  var TN=['I. MANNSCHAFT','II. MANNSCHAFT'];
+  var info='<div class="cell"></div>'+teams.map(function(t){return '<div class="cell th sep">'+TN[t]+'</div>';}).join('');
   labels.forEach(function(lb,i){
     info+='<div class="cell d labc"><span class="lab">'+lb+'</span></div>'
-        +'<div class="cell d sep">'+val(0,i)+'</div>'
-        +'<div class="cell d sep">'+val(1,i)+'</div>';
+        +teams.map(function(t){return '<div class="cell d sep">'+val(t,i)+'</div>';}).join('');
   });
-  info+='<div class="strike'+(m[0].frei?' on':'')+'" style="grid-column:2;grid-row:2/8"></div>';
-  info+='<div class="strike'+(m[1].frei?' on':'')+'" style="grid-column:3;grid-row:2/8"></div>';
+  teams.forEach(function(t,k){
+    info+='<div class="strike'+(m[t].frei?' on':'')+'" style="grid-column:'+(k+2)+';grid-row:2/8"></div>';
+  });
   function tn(name){return (form.mitNr&&nrOf(name))?'<span class="trik">'+esc(nrOf(name))+'</span>':'';}
   function col(t){
     /* nur belegte Plaetze - die laengere Mannschaft bestimmt die Hoehe */
-    var h='';
+    var h='',k=0;
     for(var i=0;i<SLOTS;i++){
       if(!m[t].slots[i])continue;
-      h+='<div class="slot"><span class="num">'+esc(m[t].nums[i])+'</span>'+p(m[t].slots[i])+tn(m[t].slots[i])+'</div>';
+      k++;
+      h+='<div class="slot"><span class="num">'+k+'.</span>'+p(m[t].slots[i])+tn(m[t].slots[i])+'</div>';
     }
     if(m[t].etw)h+='<div class="slot etw"><span class="num etwlab">ETW:</span>'+p(m[t].etw)+tn(m[t].etw)+'</div>';
     return h;
@@ -1276,10 +1341,11 @@ function renderStatic(){
     +'<div class="gegnerbox"><span class="penval" style="font-size:'+gegnerFit()+'px">'+(esc(form.gegner)||'&nbsp;')+'</span></div>'
     +'</div><div class="headR">'+CREST('s')+'<div class="svdjk">SV / DJK</div></div></div>'
     +'<div class="ortline"><span class="lab">SPIELORT:</span>'+p(form.spielort)+'</div>'
-    +'<div class="info">'+info+'</div>'
+    +'<div class="info'+(teams.length===1?' solo':'')+'">'+info+'</div>'
     +'<div class="aufhead">AUFSTELLUNGEN</div>'
-    +'<div class="lineup"><div class="tcol"><div class="th">I. MANNSCHAFT</div>'+col(0)+'</div>'
-    +'<div class="tcol tr2"><div class="th">II. MANNSCHAFT</div>'+col(1)+'</div></div>'
+    +'<div class="lineup'+(teams.length===1?' solo':'')+'">'
+    +teams.map(function(t,k){return '<div class="tcol'+(k?' tr2':'')+'"><div class="th">'+TN[t]+'</div>'+col(t)+'</div>';}).join('')
+    +'</div>'
     +'<div class="foot">AUF IHR KOMMEN FREUEN SICH DIE SPIELER<br>DER SV / DJK</div>';
   return sh;
 }
